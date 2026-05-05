@@ -51,3 +51,5 @@ prisma/dev.db-journal
 
 # temp migration scripts
 migrate-cols.js
+test-db.js
+dev.db
