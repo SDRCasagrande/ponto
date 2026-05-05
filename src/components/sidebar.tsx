@@ -6,8 +6,9 @@ import {
   Users, Cpu, Clock, FileText, BarChart3, Settings,
   ChevronDown, ChevronRight, Fingerprint,
   LayoutDashboard, LogOut, Bell, CalendarDays,
-  UserCircle, Shield, AlertTriangle
+  UserCircle, Shield, AlertTriangle, History
 } from 'lucide-react';
+import { APP_VERSION } from '@/app/atualizacoes/page';
 
 interface NavItem {
   href?: string;
@@ -74,6 +75,7 @@ export default function Sidebar() {
       children: [
         { href: '/usuarios', label: 'Usuários e Permissões' },
         { href: '/configuracoes', label: 'Configurações' },
+        { href: '/atualizacoes', label: 'Atualizações' },
       ],
     },
   ];
@@ -173,7 +175,7 @@ export default function Sidebar() {
         }}>
           <LogOut size={13} /> Sair
         </a>
-        <span>© {new Date().getFullYear()} BitKaiser Solution</span>
+        <span>© {new Date().getFullYear()} BitKaiser Solution · v{APP_VERSION}</span>
       </div>
     </aside>
   );
