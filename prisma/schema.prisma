@@ -1,0 +1,172 @@
+// Bit-Converter Web — Schema do Banco de Dados
+// Controle de ponto com sync automático de relógios ControlID
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// === USUÁRIOS DO SISTEMA ===
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String   @default("")
+  password  String   // bcrypt hash
+  role      String   @default("operator") // admin, operator, viewer
+  active    Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// === RELÓGIOS DE PONTO ===
+model Clock {
+  id        String   @id @default(cuid())
+  name      String   // Nome amigável (ex: "Relógio Entrada Principal")
+  ip        String   // IP na rede local
+  port      Int      @default(443)
+  protocol  String   @default("https") // https ou http
+  login     String   @default("admin")
+  password  String   @default("admin")
+  // Metadados do equipamento
+  deviceName String  @default("")
+  serial     String  @default("")
+  // Status de sync
+  lastSyncAt  DateTime?
+  lastSyncStatus String @default("pending") // pending, success, error
+  lastSyncError  String @default("")
+  syncEnabled    Boolean @default(true)
+  syncInterval   Int     @default(5) // minutos entre syncs
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // Relações
+  punches   Punch[]
+}
+
+// === FUNCIONÁRIOS ===
+model Employee {
+  id         String   @id @default(cuid())
+  pis        String   @unique // PIS/NIT do funcionário
+  name       String   @default("")
+  employeeId String   @default("") // Matrícula
+  cargo      String   @default("") // Cargo/função
+  department String   @default("") // Departamento
+  phone      String   @default("") // Telefone
+  email      String   @default("") // Email
+  admissionDate DateTime? // Data de admissão
+  active     Boolean  @default(true)
+  // Escala individual (override da config global)
+  scheduleType  String? // Se null, usa a config global
+  dailyHours    Float?
+  saturdayHours Float?
+  // Timestamps
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  // Relações
+  punches    Punch[]
+  leaves     Leave[]
+}
+
+// === MARCAÇÕES DE PONTO ===
+model Punch {
+  id        String   @id @default(cuid())
+  nsr       String   @default("") // Número Sequencial de Registro
+  pis       String   // PIS do funcionário
+  punchTime DateTime // Data/hora da marcação
+  // Origem
+  clockId   String?
+  clock     Clock?   @relation(fields: [clockId], references: [id])
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [pis])
+  // Controle de importação
+  source    String   @default("sync") // sync, manual, file
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@unique([pis, punchTime]) // Evita duplicatas
+  @@index([pis, punchTime])
+  @@index([punchTime])
+}
+
+// === FÉRIAS / AFASTAMENTOS ===
+model Leave {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [pis])
+  type        String   // ferias, atestado, falta_justificada, licenca, folga_compensatoria
+  startDate   DateTime
+  endDate     DateTime
+  days        Int      @default(0)
+  reason      String   @default("")
+  status      String   @default("approved") // pending, approved, rejected
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([startDate, endDate])
+}
+
+// === NOTIFICAÇÕES ===
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // clock_offline, missing_punch, inconsistency, leave_approved
+  title     String
+  message   String
+  severity  String   @default("info") // info, warning, critical
+  read      Boolean  @default(false)
+  relatedId String?  // ID do objeto relacionado
+  createdAt DateTime @default(now())
+
+  @@index([read])
+  @@index([createdAt])
+}
+
+// === CONFIGURAÇÕES GLOBAIS ===
+model Config {
+  id    String @id @default("global")
+  // Empresa
+  companyName    String @default("")
+  companyCnpj    String @default("")
+  companyAddress String @default("")
+  companyCity    String @default("")
+  companyState   String @default("")
+  companyPhone   String @default("")
+  companyLogo    String @default("")
+  // Escala padrão
+  scheduleType     String  @default("6x1")
+  entryTime        String  @default("08:00")
+  exitTime         String  @default("18:00")
+  breakStart       String  @default("13:00")
+  breakEnd         String  @default("15:00")
+  breakDuration    Int     @default(120)
+  toleranceMinutes Int     @default(10)
+  weeklyHours      Float   @default(44.0)
+  dailyHours       Float   @default(8.0)
+  saturdayHours    Float   @default(4.0)
+  workdays         String  @default("0,1,2,3,4,5") // JSON array as CSV
+  // Sync
+  autoSyncEnabled  Boolean @default(true)
+  syncIntervalMin  Int     @default(5)
+  // Timestamps
+  updatedAt DateTime @updatedAt
+}
+
+// === LOG DE SYNC ===
+model SyncLog {
+  id        String   @id @default(cuid())
+  clockId   String
+  clockName String   @default("")
+  status    String   // success, error
+  message   String   @default("")
+  punchesFound Int   @default(0)
+  punchesNew   Int   @default(0)
+  duration     Int   @default(0) // ms
+  createdAt DateTime @default(now())
+
+  @@index([clockId])
+  @@index([createdAt])
+}
